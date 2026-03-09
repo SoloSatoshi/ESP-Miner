@@ -443,6 +443,24 @@ void BAP_handle_settings(const char *parameter, const char *value) {
                 BAP_send_message(BAP_CMD_ACK, parameter, value);
             }
             break;
+
+        case BAP_PARAM_FACTORY_RESET:
+            if (strcmp(value, "1") != 0) {
+                BAP_send_message(BAP_CMD_ERR, parameter, "invalid_value");
+                return;
+            }
+
+            if (nvs_config_factory_reset_user_settings() != ESP_OK) {
+                BAP_send_message(BAP_CMD_ERR, parameter, "reset_failed");
+                return;
+            }
+
+            BAP_send_message(BAP_CMD_ACK, parameter, "factory_resetting");
+            vTaskDelay(pdMS_TO_TICKS(100));
+            BAP_send_message(BAP_CMD_STA, "status", "factory_resetting");
+            vTaskDelay(pdMS_TO_TICKS(500));
+            esp_restart();
+            break;
             
         default:
             ESP_LOGE(TAG, "Unsupported settings parameter: %s", parameter);

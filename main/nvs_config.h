@@ -104,6 +104,7 @@ typedef struct {
 } Settings;
 
 esp_err_t nvs_config_init(void);
+esp_err_t nvs_config_factory_reset_user_settings(void);
 
 char * nvs_config_get_string(NvsConfigKey key);
 void nvs_config_set_string(NvsConfigKey key, const char * value);

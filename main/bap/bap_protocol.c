@@ -32,6 +32,7 @@ static const char *parameter_strings[] = {
     "wifi",
     "found_block",
     "show_new_block",
+    "factory_reset",
     "unknown"
 };
 

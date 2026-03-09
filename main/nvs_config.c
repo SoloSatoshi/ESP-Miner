@@ -16,6 +16,28 @@
 
 #define NVS_CONFIG_NAMESPACE "main"
 #define NVS_STR_LIMIT (4000 - 1) // See nvs_set_str
+#define FACTORY_DEFAULT_HOSTNAME "bitaxe"
+#define FACTORY_DEFAULT_WIFI_SSID ""
+#define FACTORY_DEFAULT_WIFI_PASS ""
+#define FACTORY_DEFAULT_STRATUM_URL "public-pool.io"
+#define FACTORY_DEFAULT_STRATUM_PORT 21496
+#define FACTORY_DEFAULT_STRATUM_USER "bc1qnp980s5fpp8l94p5cvttmtdqy8rvrq74qly2yrfmzkdsntqzlc5qkc4rkq.bitaxe"
+#define FACTORY_DEFAULT_STRATUM_PASS "x"
+#define FACTORY_DEFAULT_STRATUM_DIFFICULTY 1000
+#define FACTORY_DEFAULT_STRATUM_EXTRANONCE_SUBSCRIBE false
+#define FACTORY_DEFAULT_STRATUM_TLS 0
+#define FACTORY_DEFAULT_STRATUM_CERT "x"
+#define FACTORY_DEFAULT_STRATUM_DECODE_COINBASE true
+#define FACTORY_DEFAULT_FALLBACK_STRATUM_URL "solo.ckpool.org"
+#define FACTORY_DEFAULT_USE_FALLBACK_STRATUM false
+#define FACTORY_DEFAULT_OVERCLOCK_ENABLED false
+#define FACTORY_DEFAULT_DISPLAY_TIMEOUT -1
+#define FACTORY_DEFAULT_AUTO_FAN_SPEED true
+#define FACTORY_DEFAULT_MANUAL_FAN_SPEED 100
+#define FACTORY_DEFAULT_MIN_FAN_SPEED 25
+#define FACTORY_DEFAULT_TEMP_TARGET 60
+#define FACTORY_DEFAULT_OVERHEAT_MODE false
+#define FACTORY_DEFAULT_SWARM ""
 
 #ifdef CONFIG_STRATUM_EXTRANONCE_SUBSCRIBE
     #define STRATUM_EXTRANONCE_SUBSCRIBE 1
@@ -157,6 +179,148 @@ static void nvs_config_apply_fallback(NvsConfigKey key, Settings * setting)
     }
 }
 
+static esp_err_t nvs_config_write_string_now(NvsConfigKey key, const char *value)
+{
+    Settings *setting = nvs_config_get_settings(key);
+    if (!setting || setting->type != TYPE_STR) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    char *new_value = strdup(value ? value : "");
+    if (!new_value) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    char *old_value = setting->value.str;
+    setting->value.str = new_value;
+
+    esp_err_t ret = nvs_set_str(handle, setting->nvs_key_name, new_value);
+    if (ret != ESP_OK) {
+        setting->value.str = old_value;
+        free(new_value);
+        return ret;
+    }
+
+    if (old_value) {
+        free(old_value);
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t nvs_config_write_u16_now(NvsConfigKey key, uint16_t value)
+{
+    Settings *setting = nvs_config_get_settings(key);
+    if (!setting || setting->type != TYPE_U16) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    setting->value.u16 = value;
+    esp_err_t ret = nvs_set_u16(handle, setting->nvs_key_name, value);
+    if (ret == ESP_OK) {
+        nvs_config_apply_fallback(key, setting);
+    }
+    return ret;
+}
+
+static esp_err_t nvs_config_write_i32_now(NvsConfigKey key, int32_t value)
+{
+    Settings *setting = nvs_config_get_settings(key);
+    if (!setting || setting->type != TYPE_I32) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    setting->value.i32 = value;
+    return nvs_set_i32(handle, setting->nvs_key_name, value);
+}
+
+static esp_err_t nvs_config_write_bool_now(NvsConfigKey key, bool value)
+{
+    Settings *setting = nvs_config_get_settings(key);
+    if (!setting || setting->type != TYPE_BOOL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    setting->value.b = value;
+    return nvs_set_u16(handle, setting->nvs_key_name, value ? 1 : 0);
+}
+
+static esp_err_t nvs_config_factory_reset_write_all(void)
+{
+    esp_err_t ret = ESP_OK;
+
+    ret = nvs_config_write_string_now(NVS_CONFIG_HOSTNAME, FACTORY_DEFAULT_HOSTNAME);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_WIFI_SSID, FACTORY_DEFAULT_WIFI_SSID);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_WIFI_PASS, FACTORY_DEFAULT_WIFI_PASS);
+    if (ret != ESP_OK) return ret;
+
+    ret = nvs_config_write_string_now(NVS_CONFIG_STRATUM_URL, FACTORY_DEFAULT_STRATUM_URL);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_STRATUM_PORT, FACTORY_DEFAULT_STRATUM_PORT);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_STRATUM_USER, FACTORY_DEFAULT_STRATUM_USER);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_STRATUM_PASS, FACTORY_DEFAULT_STRATUM_PASS);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_STRATUM_DIFFICULTY, FACTORY_DEFAULT_STRATUM_DIFFICULTY);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_bool_now(NVS_CONFIG_STRATUM_EXTRANONCE_SUBSCRIBE, FACTORY_DEFAULT_STRATUM_EXTRANONCE_SUBSCRIBE);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_STRATUM_TLS, FACTORY_DEFAULT_STRATUM_TLS);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_STRATUM_CERT, FACTORY_DEFAULT_STRATUM_CERT);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_bool_now(NVS_CONFIG_STRATUM_DECODE_COINBASE, FACTORY_DEFAULT_STRATUM_DECODE_COINBASE);
+    if (ret != ESP_OK) return ret;
+
+    ret = nvs_config_write_string_now(NVS_CONFIG_FALLBACK_STRATUM_URL, FACTORY_DEFAULT_FALLBACK_STRATUM_URL);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_FALLBACK_STRATUM_PORT, 3333);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_FALLBACK_STRATUM_USER, FACTORY_DEFAULT_STRATUM_USER);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_FALLBACK_STRATUM_PASS, FACTORY_DEFAULT_STRATUM_PASS);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_FALLBACK_STRATUM_DIFFICULTY, FACTORY_DEFAULT_STRATUM_DIFFICULTY);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_bool_now(NVS_CONFIG_FALLBACK_STRATUM_EXTRANONCE_SUBSCRIBE, FACTORY_DEFAULT_STRATUM_EXTRANONCE_SUBSCRIBE);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_FALLBACK_STRATUM_TLS, FACTORY_DEFAULT_STRATUM_TLS);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_FALLBACK_STRATUM_CERT, FACTORY_DEFAULT_STRATUM_CERT);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_bool_now(NVS_CONFIG_FALLBACK_STRATUM_DECODE_COINBASE, FACTORY_DEFAULT_STRATUM_DECODE_COINBASE);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_bool_now(NVS_CONFIG_USE_FALLBACK_STRATUM, FACTORY_DEFAULT_USE_FALLBACK_STRATUM);
+    if (ret != ESP_OK) return ret;
+
+    ret = nvs_config_write_bool_now(NVS_CONFIG_OVERCLOCK_ENABLED, FACTORY_DEFAULT_OVERCLOCK_ENABLED);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_i32_now(NVS_CONFIG_DISPLAY_TIMEOUT, FACTORY_DEFAULT_DISPLAY_TIMEOUT);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_bool_now(NVS_CONFIG_AUTO_FAN_SPEED, FACTORY_DEFAULT_AUTO_FAN_SPEED);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_MANUAL_FAN_SPEED, FACTORY_DEFAULT_MANUAL_FAN_SPEED);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_MIN_FAN_SPEED, FACTORY_DEFAULT_MIN_FAN_SPEED);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_u16_now(NVS_CONFIG_TEMP_TARGET, FACTORY_DEFAULT_TEMP_TARGET);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_bool_now(NVS_CONFIG_OVERHEAT_MODE, FACTORY_DEFAULT_OVERHEAT_MODE);
+    if (ret != ESP_OK) return ret;
+
+    ret = nvs_config_write_string_now(NVS_CONFIG_SWARM, FACTORY_DEFAULT_SWARM);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_THEME_SCHEME, DEFAULT_THEME);
+    if (ret != ESP_OK) return ret;
+    ret = nvs_config_write_string_now(NVS_CONFIG_THEME_COLORS, DEFAULT_COLORS);
+    if (ret != ESP_OK) return ret;
+
+    return nvs_commit(handle);
+}
+
 static void nvs_task(void *pvParameters)
 {
     while (1) {
@@ -294,6 +458,17 @@ esp_err_t nvs_config_init(void)
         return ESP_FAIL;
     }
     return ESP_OK;
+}
+
+esp_err_t nvs_config_factory_reset_user_settings(void)
+{
+    if (!handle) {
+        ESP_LOGE(TAG, "NVS handle not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    ESP_LOGW(TAG, "Resetting user-configurable settings to factory defaults");
+    return nvs_config_factory_reset_write_all();
 }
 
 char *nvs_config_get_string(NvsConfigKey key)
