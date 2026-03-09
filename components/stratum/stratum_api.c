@@ -15,6 +15,7 @@
 #include "esp_crt_bundle.h"
 #include "utils.h"
 #include "esp_timer.h"
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -399,7 +400,7 @@ void STRATUM_V1_parse(StratumApiV1Message * message, const char * stratum_json)
         char * extranonce_str = cJSON_GetArrayItem(params, 0)->valuestring;
         uint32_t extranonce_2_len = cJSON_GetArrayItem(params, 1)->valueint;
         if (extranonce_2_len > MAX_EXTRANONCE_2_LEN) {
-            ESP_LOGW(TAG, "Extranonce_2_len %u exceeds maximum %d, clamping to maximum", 
+            ESP_LOGW(TAG, "Extranonce_2_len %" PRIu32 " exceeds maximum %d, clamping to maximum",
                      extranonce_2_len, MAX_EXTRANONCE_2_LEN);
             extranonce_2_len = MAX_EXTRANONCE_2_LEN;
         }
