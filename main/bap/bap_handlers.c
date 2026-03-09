@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
 #include "nvs_config.h"
 #include "bap_handlers.h"
 #include "bap_protocol.h"
@@ -24,6 +25,25 @@ static const char *TAG = "BAP_HANDLERS";
 static bap_command_handler_t handlers[BAP_CMD_UNKNOWN + 1] = {0};
 static char last_processed_message[BAP_MAX_MESSAGE_LEN] = {0};
 static uint32_t last_message_time = 0;
+
+static void bap_factory_reset_clear_wifi_state(void)
+{
+    esp_err_t ret = esp_wifi_disconnect();
+    if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_INIT && ret != ESP_ERR_WIFI_NOT_STARTED) {
+        ESP_LOGW(TAG, "Failed to disconnect WiFi during factory reset: %s", esp_err_to_name(ret));
+    }
+
+    wifi_config_t empty_sta_config = {0};
+    ret = esp_wifi_set_config(WIFI_IF_STA, &empty_sta_config);
+    if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_INIT) {
+        ESP_LOGW(TAG, "Failed to clear STA config during factory reset: %s", esp_err_to_name(ret));
+    }
+
+    ret = esp_wifi_restore();
+    if (ret != ESP_OK && ret != ESP_ERR_WIFI_NOT_INIT) {
+        ESP_LOGW(TAG, "Failed to restore WiFi driver defaults during factory reset: %s", esp_err_to_name(ret));
+    }
+}
 
 void BAP_register_handler(bap_command_t cmd, bap_command_handler_t handler) {
     if (cmd >= 0 && cmd <= BAP_CMD_UNKNOWN) {
@@ -289,14 +309,16 @@ void BAP_handle_settings(const char *parameter, const char *value) {
 
     bap_parameter_t param = BAP_parameter_from_string(parameter);
     
-    // In AP mode, only allow SSID and password settings
+    // In AP mode, only allow settings needed for recovery/setup.
     if (!bap_global_state->SYSTEM_MODULE.is_connected) {
-        if (param != BAP_PARAM_SSID && param != BAP_PARAM_PASSWORD) {
+        if (param != BAP_PARAM_SSID &&
+            param != BAP_PARAM_PASSWORD &&
+            param != BAP_PARAM_FACTORY_RESET) {
             ESP_LOGW(TAG, "Setting '%s' not allowed in AP mode", parameter);
             BAP_send_message(BAP_CMD_ERR, parameter, "ap_mode_limited_settings");
             return;
         }
-        //ESP_LOGI(TAG, "AP mode: allowing WiFi credential setting for %s", parameter);
+        //ESP_LOGI(TAG, "AP mode: allowing recovery setting for %s", parameter);
     }
     
     switch (param) {
@@ -455,10 +477,12 @@ void BAP_handle_settings(const char *parameter, const char *value) {
                 return;
             }
 
+            bap_factory_reset_clear_wifi_state();
+
             BAP_send_message(BAP_CMD_ACK, parameter, "factory_resetting");
             vTaskDelay(pdMS_TO_TICKS(100));
             BAP_send_message(BAP_CMD_STA, "status", "factory_resetting");
-            vTaskDelay(pdMS_TO_TICKS(500));
+            vTaskDelay(pdMS_TO_TICKS(1500));
             esp_restart();
             break;
             
